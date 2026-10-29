@@ -1,0 +1,26 @@
+{
+    "properties": [
+        {
+            "name": "custom.go.processor.url",
+            "type": "java.lang.String",
+            "description": "URL of Go processor service",
+            "defaultValue": "http://localhost:8081"
+        },
+        {
+            "name": "custom.go.processor.timeout",
+            "type": "java.lang.String",
+            "description": "Go processor timeout",
+            "defaultValue": "30s"
+        },
+        {
+            "name": "custom.external.services.python-bot.url",
+            "type": "java.lang.String",
+            "description": "Python bot service URL"
+        },
+        {
+            "name": "custom.external.services.elixir-core.url",
+            "type": "java.lang.String",
+            "description": "Elixir core service URL"
+        }
+    ]
+}

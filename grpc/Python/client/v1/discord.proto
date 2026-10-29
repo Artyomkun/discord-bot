@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package discord;
+
+service DiscordService {
+  rpc SendCommand(CommandRequest) returns (CommandResponse);
+  rpc GetStatus(StatusRequest) returns (StatusResponse);
+}
+
+message CommandRequest {
+  string command = 1;
+  string url = 2;
+  string user_id = 3;
+  string guild_id = 4;
+  string channel_id = 5;
+  map<string, string> options = 6;
+}
+
+message CommandResponse {
+  bool success = 1;
+  string message = 2;
+  map<string, string> data = 3;
+}
+
+message StatusRequest {
+  string guild_id = 1;
+}
+
+message StatusResponse {
+  bool playing = 1;
+  string current_track = 2;
+  int32 volume = 3;
+  int32 queue_length = 4;
+}

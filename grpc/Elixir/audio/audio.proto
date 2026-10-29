@@ -1,0 +1,496 @@
+syntax = "proto3";
+
+package audio.v1;
+
+service AudioService {
+  rpc Play(PlayRequest) returns (PlayResponse);
+  rpc Stop(StopRequest) returns (StopResponse);
+  rpc Pause(PauseRequest) returns (PauseResponse);
+  rpc Resume(ResumeRequest) returns (ResumeResponse);
+  rpc Volume(VolumeRequest) returns (VolumeResponse);
+  rpc Skip(SkipRequest) returns (SkipResponse);
+  rpc Queue(QueueRequest) returns (QueueResponse);
+  rpc Effects(EffectsRequest) returns (EffectsResponse);
+  rpc Status(StatusRequest) returns (StatusResponse);
+}
+
+message PlayRequest {
+  string guild_id = 1;
+  string user_id = 2;
+  string track_url = 3;
+  string track_title = 4;
+  map<string, string> options = 5;
+}
+
+message PlayResponse {
+  bool success = 1;
+  string stream_id = 2;
+  string message = 3;
+}
+
+message StopRequest {
+  string guild_id = 1;
+}
+
+message StopResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message PauseRequest {
+  string guild_id = 1;
+}
+
+message PauseResponse {
+  bool success = 1;
+}
+
+message ResumeRequest {
+  string guild_id = 1;
+}
+
+message ResumeResponse {
+  bool success = 1;
+}
+
+message VolumeRequest {
+  string guild_id = 1;
+  int32 volume = 2;  // 0-200
+}
+
+message VolumeResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message SkipRequest {
+  string guild_id = 1;
+}
+
+message SkipResponse {
+  bool success = 1;
+  string next_title = 2;
+  string message = 3;
+}
+
+message QueueRequest {
+  string guild_id = 1;
+}
+
+message QueueTrack {
+  string title = 1;
+  string url = 2;
+}
+
+message QueueResponse {
+  bool success = 1;
+  repeated QueueTrack tracks = 2;
+  string message = 3;
+}
+
+message EffectsRequest {
+  string guild_id = 1;
+  string user_id = 2;
+  map<string, string> effects = 3;
+}
+
+message EffectsResponse {
+  bool success = 1;
+  repeated string applied = 2;
+  string message = 3;
+}
+
+message StatusRequest {
+  string guild_id = 1;
+}
+
+message StatusResponse {
+  bool success = 1;
+  bool playing = 2;
+  string current_track = 3;
+  int32 position = 4;  // seconds
+  int32 volume = 5;
+  string message = 6;
+}
+
+// AudioProcessor сервис для обработки аудио
+service AudioProcessor {
+  // Обработка одного аудиофрагмента
+  rpc ProcessAudio(AudioProcessRequest) returns (AudioProcessResponse);
+  
+  // Потоковая обработка аудио
+  rpc ProcessStream(stream AudioProcessRequest) returns (stream AudioProcessResponse);
+  
+  // Пакетная обработка нескольких фрагментов
+  rpc ProcessBatch(AudioBatchRequest) returns (AudioBatchResponse);
+  
+  // Информация о сервисе
+  rpc GetInfo(InfoRequest) returns (InfoResponse);
+  
+  // Проверка здоровья
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// Запрос на обработку аудио
+message AudioProcessRequest {
+  string stream_id = 1;                    // ID потока
+  bytes audio_data = 2;                     // Аудио данные
+  AudioFormat format = 3;                    // Формат аудио
+  EffectChain effects = 4;                   // Цепочка эффектов
+  ProcessingOptions options = 5;              // Опции обработки
+  map<string, string> metadata = 6;           // Метаданные
+}
+
+// Формат аудио
+message AudioFormat {
+  enum SampleFormat {
+    U8 = 0;
+    S16 = 1;
+    S24 = 2;
+    S32 = 3;
+    F32 = 4;
+    F64 = 5;
+  }
+  
+  enum ChannelLayout {
+    MONO = 0;
+    STEREO = 1;
+    SURROUND_51 = 2;
+    SURROUND_71 = 3;
+  }
+  
+  SampleFormat sample_format = 1;
+  int32 sample_rate = 2;                     // Hz
+  ChannelLayout channel_layout = 3;
+  int32 bit_depth = 4;
+  bool little_endian = 5;
+}
+
+// Цепочка эффектов
+message EffectChain {
+  repeated Effect effects = 1;
+  bool bypass = 2;
+  float mix = 3;                              // Общий dry/wet микс
+}
+
+// Базовый эффект
+message Effect {
+  string id = 1;                              // ID эффекта в цепочке
+  EffectType type = 2;
+  bool enabled = 3;
+  float mix = 4;                              // Индивидуальный dry/wet
+  
+  oneof params {
+    VolumeParams volume = 10;
+    EqualizerParams equalizer = 11;
+    CompressorParams compressor = 12;
+    ReverbParams reverb = 13;
+    DelayParams delay = 14;
+    DistortionParams distortion = 15;
+    ChorusParams chorus = 16;
+    PitchShiftParams pitch_shift = 17;
+    GateParams gate = 18;
+    LimiterParams limiter = 19;
+  }
+}
+
+// Типы эффектов
+enum EffectType {
+  VOLUME = 0;
+  EQUALIZER = 1;
+  COMPRESSOR = 2;
+  REVERB = 3;
+  DELAY = 4;
+  DISTORTION = 5;
+  CHORUS = 6;
+  PITCH_SHIFT = 7;
+  GATE = 8;
+  LIMITER = 9;
+}
+
+// Параметры Volume
+message VolumeParams {
+  float gain = 1;                              // Множитель громкости
+  bool mute = 2;
+  bool solo = 3;
+}
+
+// Параметры Equalizer (31 полоса!)
+message EqualizerParams {
+  repeated float gains = 1;                     // 31 значение для ISO полос
+  float preamp = 2;                             // Предусиление
+  bool linear_phase = 3;                        // Режим линейной фазы
+  
+  // Для параметрического EQ
+  repeated ParametricBand parametric_bands = 10;
+}
+
+// Параметрическая полоса
+message ParametricBand {
+  float frequency = 1;                           // Hz
+  float gain = 2;                                // dB
+  float q = 3;                                    // Quality factor
+  enum FilterType {
+    PEAKING = 0;
+    LOW_SHELF = 1;
+    HIGH_SHELF = 2;
+    LOW_PASS = 3;
+    HIGH_PASS = 4;
+    BAND_PASS = 5;
+    NOTCH = 6;
+  }
+  FilterType filter_type = 4;
+  bool enabled = 5;
+}
+
+// Параметры Compressor
+message CompressorParams {
+  bool enabled = 1;
+  float threshold = 2;                            // dB
+  float ratio = 3;
+  int32 attack = 4;                                // ms
+  int32 release = 5;                               // ms
+  float knee = 6;                                   // dB
+  float makeup_gain = 7;                            // dB
+  int32 lookahead = 8;                              // ms
+  bool auto_release = 9;
+  
+  // Многополосный компрессор
+  repeated MultibandBand multiband_bands = 10;
+  
+  // Sidechain
+  string sidechain_source = 11;                     // stream_id
+}
+
+// Полоса многополосного компрессора
+message MultibandBand {
+  float frequency_low = 1;                           // Hz
+  float frequency_high = 2;                          // Hz
+  float threshold = 3;
+  float ratio = 4;
+  int32 attack = 5;
+  int32 release = 6;
+  bool solo = 7;
+  bool mute = 8;
+}
+
+// Параметры Reverb
+message ReverbParams {
+  bool enabled = 1;
+  float level = 2;                                   // Wet level
+  float room_size = 3;                                // 0.0-1.0
+  float damping = 4;                                  // 0.0-1.0
+  float width = 5;                                    // Stereo width
+  float pre_delay = 6;                                // ms
+  float decay_time = 7;                               // seconds
+  float diffusion = 8;                                // 0.0-1.0
+  float modulation = 9;                               // 0.0-1.0
+  
+  enum ReverbType {
+    ROOM = 0;
+    HALL = 1;
+    PLATE = 2;
+    SPRING = 3;
+    CATHEDRAL = 4;
+    CUSTOM = 5;
+  }
+  ReverbType reverb_type = 10;
+}
+
+// Параметры Delay
+message DelayParams {
+  bool enabled = 1;
+  float time = 2;                                     // ms
+  float feedback = 3;                                 // 0.0-0.99
+  float mix = 4;
+  
+  enum DelayType {
+    MONO = 0;
+    STEREO = 1;
+    PING_PONG = 2;
+    MULTI_TAP = 3;
+    TAPE = 4;
+  }
+  DelayType delay_type = 5;
+  
+  // Для мультитап
+  repeated Tap taps = 10;
+}
+
+// Тап для мультитап задержки
+message Tap {
+  float time = 1;                                      // ms
+  float gain = 2;
+  float pan = 3;                                        // -1.0 to 1.0
+  bool enabled = 4;
+}
+
+// Параметры Distortion
+message DistortionParams {
+  bool enabled = 1;
+  float drive = 2;
+  float tone = 3;
+  float volume = 4;
+  
+  enum DistortionType {
+    SOFT_CLIP = 0;
+    HARD_CLIP = 1;
+    ASYMMETRIC = 2;
+    TUBE = 3;
+    FUZZ = 4;
+    OVERDRIVE = 5;
+    BIT_CRUSHER = 6;
+    WAVE_SHAPER = 7;
+    FOLDBACK = 8;
+  }
+  DistortionType distortion_type = 5;
+  
+  // Для BitCrusher
+  int32 bit_depth = 6;
+  float sample_rate_reduction = 7;
+}
+
+// Параметры Chorus
+message ChorusParams {
+  bool enabled = 1;
+  float rate = 2;                                      // Hz
+  float depth = 3;
+  float mix = 4;
+  
+  enum ChorusType {
+    CHORUS = 0;
+    FLANGER = 1;
+    DIMENSION = 2;
+    ENSEMBLE = 3;
+    VIBRATO = 4;
+  }
+  ChorusType chorus_type = 5;
+}
+
+// Параметры Pitch Shift
+message PitchShiftParams {
+  bool enabled = 1;
+  float pitch_shift = 2;                               // semitones
+  float fine_tune = 3;                                 // cents
+  float formant_shift = 4;
+  bool preserve_formants = 5;
+}
+
+// Параметры Gate
+message GateParams {
+  bool enabled = 1;
+  float threshold = 2;                                 // dB
+  int32 attack = 3;
+  int32 hold = 4;
+  int32 release = 5;
+  float range = 6;                                      // dB reduction when closed
+}
+
+// Параметры Limiter
+message LimiterParams {
+  bool enabled = 1;
+  float threshold = 2;                                  // dB
+  int32 release = 3;
+  int32 lookahead = 4;
+}
+
+// Опции обработки
+message ProcessingOptions {
+  int32 priority = 1;                                   // 0-100
+  string quality_profile = 2;                           // "fast", "balanced", "high"
+  int32 max_retries = 3;
+  bool realtime = 4;                                     // Для live-обработки
+  bool save_debug_info = 5;
+}
+
+// Пакетный запрос
+message AudioBatchRequest {
+  string batch_id = 1;
+  repeated AudioProcessRequest requests = 2;
+  bool parallel = 3;
+  int32 max_concurrent = 4;
+}
+
+// Пакетный ответ
+message AudioBatchResponse {
+  string batch_id = 1;
+  repeated AudioProcessResponse responses = 2;
+  BatchStats stats = 3;
+}
+
+// Статистика пакетной обработки
+message BatchStats {
+  int32 total = 1;
+  int32 successful = 2;
+  int32 failed = 3;
+  int64 total_time_ms = 4;
+  float average_time_ms = 5;
+}
+
+// Ответ на обработку аудио
+message AudioProcessResponse {
+  string stream_id = 1;
+  bytes processed_audio = 2;
+  int64 processing_time_ms = 3;
+  ProcessingStats stats = 4;
+  repeated string applied_effects = 5;                    // Список применённых эффектов
+  bool cached = 6;                                         // Был ли использован кэш
+  map<string, string> debug_info = 7;                      // Для отладки
+}
+
+// Статистика обработки
+message ProcessingStats {
+  int64 input_size = 1;
+  int64 output_size = 2;
+  float compression_ratio = 3;
+  float peak_level = 4;                                    // dB
+  float rms_level = 5;                                      // dB
+  float crest_factor = 6;
+  float dynamic_range = 7;                                  // dB
+  map<string, float> band_levels = 8;                       // Уровни по полосам
+}
+
+// Запрос информации
+message InfoRequest {
+  string service_id = 1;
+}
+
+// Ответ с информацией
+message InfoResponse {
+  string version = 1;
+  string build_info = 2;
+  int64 uptime_ms = 3;
+  Capacity capacity = 4;
+  repeated string available_effects = 5;
+  map<string, string> config = 6;
+}
+
+// Информация о ёмкости
+message Capacity {
+  int32 max_concurrent = 1;
+  int32 current_concurrent = 2;
+  int32 queue_size = 3;
+  int32 max_queue_size = 4;
+  float cpu_usage = 5;
+  float memory_usage = 6;
+  bool gpu_available = 7;
+}
+
+// Запрос health check
+message HealthCheckRequest {
+  string service = 1;
+}
+
+// Ответ health check
+message HealthCheckResponse {
+  enum ServingStatus {
+    UNKNOWN = 0;
+    SERVING = 1;
+    NOT_SERVING = 2;
+    DEGRADED = 3;
+  }
+  ServingStatus status = 1;
+  string message = 2;
+  int64 timestamp = 3;
+  map<string, string> checks = 4;
+}

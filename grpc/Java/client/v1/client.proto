@@ -1,0 +1,277 @@
+syntax = "proto3";
+
+package client.v1;
+
+option java_package = "com.bot.grpc.client";
+option java_outer_classname = "DiscordClientProto";
+
+service DiscordClientService {
+  // Основные команды
+  rpc SendCommand(CommandRequest) returns (CommandResponse);
+  rpc GetStatus(StatusRequest) returns (StatusResponse);
+  
+  // Управление музыкой
+  rpc Play(PlayRequest) returns (PlayResponse);
+  rpc Pause(PauseRequest) returns (PauseResponse);
+  rpc Resume(ResumeRequest) returns (ResumeResponse);
+  rpc Stop(StopRequest) returns (StopResponse);
+  rpc Skip(SkipRequest) returns (SkipResponse);
+  rpc Volume(VolumeRequest) returns (VolumeResponse);
+  
+  // Очередь
+  rpc GetQueue(QueueRequest) returns (QueueResponse);
+  rpc ClearQueue(ClearQueueRequest) returns (ClearQueueResponse);
+  rpc RemoveFromQueue(RemoveFromQueueRequest) returns (RemoveFromQueueResponse);
+  rpc MoveInQueue(MoveInQueueRequest) returns (MoveInQueueResponse);
+  rpc ShuffleQueue(ShuffleQueueRequest) returns (ShuffleQueueResponse);
+  
+  // Эффекты
+  rpc ApplyEffects(EffectsRequest) returns (EffectsResponse);
+  rpc GetEffects(GetEffectsRequest) returns (GetEffectsResponse);
+  rpc ResetEffects(ResetEffectsRequest) returns (ResetEffectsResponse);
+  
+  // Стриминг
+  rpc StreamAudio(stream AudioChunk) returns (stream AudioChunk);
+  
+  // Health
+  rpc HealthCheck(HealthRequest) returns (HealthResponse);
+}
+
+// ============ Команды ============
+
+message CommandRequest {
+  string command = 1;
+  string url = 2;
+  string user_id = 3;
+  string guild_id = 4;
+  string channel_id = 5;
+  map<string, string> options = 6;
+}
+
+message CommandResponse {
+  bool success = 1;
+  string message = 2;
+  map<string, string> data = 3;
+}
+
+// ============ Статус ============
+
+message StatusRequest {
+  string guild_id = 1;
+}
+
+message StatusResponse {
+  bool success = 1;
+  bool playing = 2;
+  bool paused = 3;
+  TrackInfo current_track = 4;
+  int32 volume = 5;
+  int32 queue_length = 6;
+  int64 position_ms = 7;
+}
+
+// ============ Музыка ============
+
+message PlayRequest {
+  string guild_id = 1;
+  string user_id = 2;
+  string url = 3;
+  string voice_channel_id = 4;
+  map<string, string> options = 5;
+}
+
+message PlayResponse {
+  bool success = 1;
+  string message = 2;
+  TrackInfo track = 3;
+}
+
+message PauseRequest {
+  string guild_id = 1;
+  string user_id = 2;
+}
+
+message PauseResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message ResumeRequest {
+  string guild_id = 1;
+  string user_id = 2;
+}
+
+message ResumeResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message StopRequest {
+  string guild_id = 1;
+  string user_id = 2;
+}
+
+message StopResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message SkipRequest {
+  string guild_id = 1;
+  string user_id = 2;
+}
+
+message SkipResponse {
+  bool success = 1;
+  string message = 2;
+  TrackInfo next_track = 3;
+}
+
+message VolumeRequest {
+  string guild_id = 1;
+  string user_id = 2;
+  int32 volume = 3;  // 0-100
+}
+
+message VolumeResponse {
+  bool success = 1;
+  string message = 2;
+  int32 volume = 3;
+}
+
+// ============ Очередь ============
+
+message QueueRequest {
+  string guild_id = 1;
+  string user_id = 2;
+}
+
+message QueueResponse {
+  bool success = 1;
+  repeated TrackInfo tracks = 2;
+  TrackInfo current_track = 3;
+  int32 total_duration = 4;
+  string message = 5;
+}
+
+message ClearQueueRequest {
+  string guild_id = 1;
+  string user_id = 2;
+}
+
+message ClearQueueResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message RemoveFromQueueRequest {
+  string guild_id = 1;
+  string user_id = 2;
+  int32 position = 3;
+}
+
+message RemoveFromQueueResponse {
+  bool success = 1;
+  string message = 2;
+  TrackInfo removed_track = 3;
+}
+
+message MoveInQueueRequest {
+  string guild_id = 1;
+  string user_id = 2;
+  int32 from_position = 3;
+  int32 to_position = 4;
+}
+
+message MoveInQueueResponse {
+  bool success = 1;
+  string message = 2;
+  TrackInfo moved_track = 3;
+}
+
+message ShuffleQueueRequest {
+  string guild_id = 1;
+  string user_id = 2;
+}
+
+message ShuffleQueueResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// ============ Эффекты ============
+
+message EffectsRequest {
+  string guild_id = 1;
+  string user_id = 2;
+  string effect_type = 3;
+  double intensity = 4;
+  map<string, string> params = 5;
+}
+
+message EffectsResponse {
+  bool success = 1;
+  string message = 2;
+  repeated string applied_effects = 3;
+}
+
+message GetEffectsRequest {
+  string guild_id = 1;
+  string user_id = 2;
+}
+
+message GetEffectsResponse {
+  bool success = 1;
+  repeated EffectInfo effects = 2;
+}
+
+message EffectInfo {
+  string type = 1;
+  string name = 2;
+  double intensity = 3;
+  bool enabled = 4;
+}
+
+message ResetEffectsRequest {
+  string guild_id = 1;
+  string user_id = 2;
+}
+
+message ResetEffectsResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// ============ Стриминг ============
+
+message AudioChunk {
+  bytes data = 1;
+  int64 sequence = 2;
+  bool is_final = 3;
+  int64 timestamp = 4;
+}
+
+// ============ Health ============
+
+message HealthRequest {
+  string service = 1;
+}
+
+message HealthResponse {
+  string status = 1;  // "healthy", "degraded", "unhealthy"
+  string message = 2;
+  int64 timestamp = 3;
+  map<string, string> details = 4;
+}
+
+// ============ Общие типы ============
+
+message TrackInfo {
+  string title = 1;
+  string url = 2;
+  string artist = 3;
+  int32 duration = 4;
+  string requester = 5;
+  string thumbnail = 6;
+  bool is_stream = 7;
+}

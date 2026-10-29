@@ -1,0 +1,8 @@
+discord.py
+requests
+python-dotenv
+flask
+psycopg2-binary
+grpcio 
+grpcio-tools 
+protobuf

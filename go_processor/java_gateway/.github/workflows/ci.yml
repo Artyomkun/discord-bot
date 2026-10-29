@@ -1,0 +1,77 @@
+name: Java Gateway CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+env:
+  JAVA_VERSION: '21'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: discord_bot
+          POSTGRES_USER: bot_user
+          POSTGRES_PASSWORD: bot_pass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+      
+      kafka:
+        image: confluentinc/cp-kafka:latest
+        env:
+          KAFKA_BROKER_ID: 1
+          KAFKA_ZOOKEEPER_CONNECT: localhost:2181
+          KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+        ports:
+          - 9092:9092
+      
+      zookeeper:
+        image: confluentinc/cp-zookeeper:latest
+        env:
+          ZOOKEEPER_CLIENT_PORT: 2181
+        ports:
+          - 2181:2181
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+      
+      - name: Build with Maven
+        working-directory: ./go_processor/java_gateway
+        run: mvn clean compile -DskipTests
+      
+      - name: Run tests
+        working-directory: ./go_processor/java_gateway
+        run: mvn test
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: discord_bot
+          DB_USER: bot_user
+          DB_PASSWORD: bot_pass
+          KAFKA_BOOTSTRAP_SERVERS: localhost:9092
+      
+      - name: Package
+        working-directory: ./go_processor/java_gateway
+        run: mvn package -DskipTests
+      
+      - name: Upload JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-gateway
+          path: ./go_processor/java_gateway/target/*.jar

@@ -1,0 +1,83 @@
+version: '3.8'
+
+# ============================================================================
+# DSP Native Engine — Certified Production
+# ============================================================================
+# Сборка: docker compose build
+# Запуск: docker compose up -d dsp-runtime
+# ============================================================================
+
+x-astra-repos: &astra-repos
+  # Используется во всех build для единообразия
+  - dl.astralinux.ru/astra/stable/orel/repository
+
+services:
+  # ============================================================================
+  # ПОЛНАЯ СБОРКА (ROCm + ZLUDA + Rust .so + C .so)
+  # ============================================================================
+  dsp-builder:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: rust-builder  # собирает всё
+    image: dsp-native-builder:latest
+    volumes:
+      - dsp-cache:/root/.cargo
+    profiles:
+      - build
+
+  # ============================================================================
+  # RUNTIME — только артефакты (используется Elixir-контейнером)
+  # ============================================================================
+  dsp-runtime:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: final
+    image: dsp-native-runtime:latest
+    deploy:
+      resources:
+        reservations:
+          cpus: '2'
+          memory: 4G
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+            - driver: amd
+              capabilities: [gpu]
+        limits:
+          cpus: '4'
+          memory: 8G
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /app/priv/native/libaudio_effects_native.so && test -f /usr/local/lib/libdsp.so || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+    volumes:
+      - dsp-cache:/root/.cargo
+    profiles:
+      - production
+
+  # ============================================================================
+  # ТЕСТЫ
+  # ============================================================================
+  dsp-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: rust-builder
+    command: cargo test --features parallel
+    depends_on:
+      - dsp-builder
+    profiles:
+      - ci
+
+volumes:
+  dsp-cache:

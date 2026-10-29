@@ -1,0 +1,292 @@
+syntax = "proto3";
+
+package GoServer;
+
+import "google/protobuf/descriptor.proto";
+
+option go_package = "./goserver";
+option java_package = "com.bot.grpc.gateway";
+option java_outer_classname = "GatewayServiceProto";
+
+extend google.protobuf.FileOptions {
+  string elixir_package = 50001;
+}
+
+option (elixir_package) = "ElixirServer.v1";
+
+// Go сервис для обработки общей логики (маршрут 1)
+service GoServer {
+    // Управление воспроизведением
+    rpc Play(PlayRequest) returns (PlayResponse);
+    rpc Stop(StopRequest) returns (StopResponse);
+    rpc Pause(PauseRequest) returns (PauseResponse);
+    rpc Resume(ResumeRequest) returns (ResumeResponse);
+    rpc Skip(SkipRequest) returns (SkipResponse);
+    rpc Seek(SeekRequest) returns (SeekResponse);
+    
+    // Управление очередью
+    rpc GetQueue(QueueRequest) returns (QueueResponse);
+    rpc AddToQueue(AddToQueueRequest) returns (AddToQueueResponse);
+    rpc RemoveFromQueue(RemoveFromQueueRequest) returns (RemoveFromQueueResponse);
+    rpc MoveInQueue(MoveInQueueRequest) returns (MoveInQueueResponse);
+    rpc ClearQueue(ClearQueueRequest) returns (ClearQueueResponse);
+    rpc ShuffleQueue(ShuffleQueueRequest) returns (ShuffleQueueResponse);
+    
+    // Управление громкостью
+    rpc SetVolume(VolumeRequest) returns (VolumeResponse);
+    
+    // Статус и информация
+    rpc GetStatus(StatusRequest) returns (StatusResponse);
+    rpc GetHistory(HistoryRequest) returns (HistoryResponse);
+    rpc Search(SearchRequest) returns (SearchResponse);
+    
+    // Health check
+    rpc HealthCheck(HealthRequest) returns (HealthResponse);
+}
+
+// ========== ТРЕК ==========
+
+message TrackInfo {
+    string id = 1;
+    string title = 2;
+    string artist = 3;
+    string duration = 4;
+    int32 duration_ms = 5;
+    string url = 6;
+    string thumbnail = 7;
+    string requester_id = 8;
+    string requester_name = 9;
+    int64 requested_at = 10;
+}
+
+// ========== ЗАПРОСЫ И ОТВЕТЫ ==========
+
+message PlayRequest {
+    string guild_id = 1;
+    string user_id = 2;
+    string query = 3;
+    string voice_channel_id = 4;
+    map<string, string> options = 5;
+}
+
+message PlayResponse {
+    bool success = 1;
+    string message = 2;
+    TrackInfo track = 3;
+    int32 position = 4;
+    int32 queue_length = 5;
+}
+
+message StopRequest {
+    string guild_id = 1;
+    string user_id = 2;
+}
+
+message StopResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message PauseRequest {
+    string guild_id = 1;
+    string user_id = 2;
+}
+
+message PauseResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message ResumeRequest {
+    string guild_id = 1;
+    string user_id = 2;
+}
+
+message ResumeResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message SkipRequest {
+    string guild_id = 1;
+    string user_id = 2;
+    int32 count = 3;
+}
+
+message SkipResponse {
+    bool success = 1;
+    string message = 2;
+    TrackInfo previous_track = 3;
+    TrackInfo current_track = 4;
+    bool has_next = 5;
+}
+
+message SeekRequest {
+    string guild_id = 1;
+    string user_id = 2;
+    int32 position_ms = 3;
+}
+
+message SeekResponse {
+    bool success = 1;
+    string message = 2;
+    int32 new_position_ms = 3;
+}
+
+message QueueRequest {
+    string guild_id = 1;
+    string user_id = 2;
+    int32 limit = 3;
+    int32 offset = 4;
+}
+
+message QueueResponse {
+    bool success = 1;
+    string message = 2;
+    TrackInfo current_track = 3;
+    int32 current_position_ms = 4;
+    repeated TrackInfo tracks = 5;
+    int32 total = 6;
+    int32 duration_ms = 7;
+    bool loop = 8;
+    bool shuffle = 9;
+}
+
+message AddToQueueRequest {
+    string guild_id = 1;
+    string user_id = 2;
+    string query = 3;
+    int32 position = 4;
+}
+
+message AddToQueueResponse {
+    bool success = 1;
+    string message = 2;
+    TrackInfo track = 3;
+    int32 position = 4;
+    int32 queue_length = 5;
+}
+
+message RemoveFromQueueRequest {
+    string guild_id = 1;
+    string user_id = 2;
+    int32 position = 3;
+}
+
+message RemoveFromQueueResponse {
+    bool success = 1;
+    string message = 2;
+    TrackInfo removed_track = 3;
+    int32 queue_length = 4;
+}
+
+message MoveInQueueRequest {
+    string guild_id = 1;
+    string user_id = 2;
+    int32 from_position = 3;
+    int32 to_position = 4;
+}
+
+message MoveInQueueResponse {
+    bool success = 1;
+    string message = 2;
+    TrackInfo moved_track = 3;
+}
+
+message ClearQueueRequest {
+    string guild_id = 1;
+    string user_id = 2;
+}
+
+message ClearQueueResponse {
+    bool success = 1;
+    string message = 2;
+    int32 cleared_count = 3;
+}
+
+message ShuffleQueueRequest {
+    string guild_id = 1;
+    string user_id = 2;
+}
+
+message ShuffleQueueResponse {
+    bool success = 1;
+    string message = 2;
+    int32 shuffled_count = 3;
+}
+
+message VolumeRequest {
+    string guild_id = 1;
+    string user_id = 2;
+    int32 volume = 3;
+}
+
+message VolumeResponse {
+    bool success = 1;
+    string message = 2;
+    int32 volume = 3;
+}
+
+message StatusRequest {
+    string guild_id = 1;
+    string user_id = 2;
+}
+
+message StatusResponse {
+    bool success = 1;
+    bool playing = 2;
+    bool paused = 3;
+    TrackInfo current_track = 4;
+    int32 current_position_ms = 5;
+    int32 volume = 6;
+    int32 queue_length = 7;
+    bool loop = 8;
+    bool shuffle = 9;
+    string voice_channel_id = 10;
+    int64 started_at = 11;
+    int64 paused_at = 12;
+}
+
+message HistoryRequest {
+    string guild_id = 1;
+    string user_id = 2;
+    int32 limit = 3;
+}
+
+message HistoryResponse {
+    bool success = 1;
+    repeated TrackInfo tracks = 2;
+    int32 total = 3;
+}
+
+message SearchRequest {
+    string guild_id = 1;
+    string user_id = 2;
+    string query = 3;
+    string platform = 4;
+    int32 limit = 5;
+}
+
+message SearchResponse {
+    bool success = 1;
+    repeated TrackInfo results = 2;
+    string platform = 3;
+}
+
+message HealthRequest {
+    string service = 1;
+}
+
+message HealthResponse {
+    string status = 1;
+    string message = 2;
+    int64 timestamp = 3;
+    map<string, HealthCheck> checks = 4;
+}
+
+message HealthCheck {
+    string status = 1;
+    string message = 2;
+    int64 latency_ms = 3;
+    int64 last_check = 4;
+}

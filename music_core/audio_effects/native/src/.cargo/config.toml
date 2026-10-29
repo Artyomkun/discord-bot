@@ -1,0 +1,251 @@
+# Конфигурация Cargo для аудио эффектов
+# Оптимизировано для максимальной производительности аудио обработки
+
+[build]
+# Параллельная сборка
+jobs = 8
+
+# Используем rustc из Rustup
+rustc = "rustc"
+
+# Дополнительные флаги для rustc
+rustflags = [
+  # Основные оптимизации
+  "-C",
+  "opt-level=3",
+  "-C",
+  "target-cpu=native",
+  "-C",
+  "codegen-units=1",
+
+  # Включение link-time optimization для релизных сборок
+  "-C",
+  "lto=fat",
+
+  # Параллельная компоновка
+  "-C",
+  "link-arg=-fuse-ld=lld",
+
+  # Ускорение математических операций
+  "-C",
+  "target-feature=+fma",
+  "-C",
+  "target-feature=+avx2",
+  "-C",
+  "target-feature=+sse4.2",
+
+  # Отключение frame pointer для лучшей производительности
+  "-C",
+  "force-frame-pointers=no",
+]
+
+# Флаги для специфичных платформ
+[target.x86_64-pc-windows-msvc]
+rustflags = [
+  "-C",
+  "target-feature=+avx2,+fma,+sse4.2",
+  "-C",
+  "link-arg=/LTCG",
+  "-C",
+  "link-arg=/OPT:REF",
+  "-C",
+  "link-arg=/OPT:ICF",
+  "-C",
+  "link-arg=/DEBUG:NONE",
+]
+
+[target.x86_64-unknown-linux-gnu]
+rustflags = [
+  "-C",
+  "target-feature=+avx2,+fma,+sse4.2",
+  "-C",
+  "link-arg=-Wl,--strip-all",
+  "-C",
+  "link-arg=-Wl,--gc-sections",
+  "-C",
+  "link-arg=-Wl,--icf=all",
+]
+
+[target.aarch64-apple-darwin]
+rustflags = [
+  "-C",
+  "target-feature=+neon",
+  "-C",
+  "link-arg=-dead_strip",
+  "-C",
+  "link-arg=-Wl,-S",
+]
+
+# Настройки для сборки с разными флагами
+[target.'cfg(target_os = "windows")']
+rustflags = [
+  "-C",
+  "target-feature=+avx2,+fma,+sse4.2",
+  "-C",
+  "panic=abort",
+  "-C",
+  "inline-threshold=1000",
+]
+
+[target.'cfg(target_os = "linux")']
+rustflags = [
+  "-C",
+  "target-feature=+avx2,+fma,+sse4.2",
+  "-C",
+  "panic=abort",
+  "-C",
+  "inline-threshold=1000",
+  "-C",
+  "link-arg=-Wl,-z,now",
+]
+
+[target.'cfg(target_os = "macos")']
+rustflags = [
+  "-C",
+  "target-feature=+neon",
+  "-C",
+  "panic=abort",
+  "-C",
+  "inline-threshold=1000",
+  "-C",
+  "link-arg=-Wl,-dead_strip",
+]
+
+# Оптимизации для конкретных процессоров
+[target.'cfg(target_arch = "x86_64")']
+rustflags = [
+  "-C",
+  "target-cpu=haswell",
+  "-C",
+  "target-feature=+avx2,+fma,+sse4.2,+bmi2,+lzcnt",
+]
+
+[target.'cfg(target_arch = "aarch64")']
+rustflags = [
+  "-C",
+  "target-cpu=cortex-a72",
+  "-C",
+  "target-feature=+neon,+crc,+lse",
+]
+
+# Настройки для кросс-компиляции
+[target.'cfg(windows)']
+linker = "x86_64-w64-mingw32-gcc"
+
+[target.'cfg(unix)']
+linker = "clang"
+
+# Настройки для кэширования компиляции
+[env]
+# Для Windows
+CARGO_INCREMENTAL = "1"
+RUSTC_WRAPPER = "sccache"
+
+# Для ускорения сборки в CI
+CARGO_NET_GIT_FETCH_WITH_CLI = "true"
+CARGO_NET_RETRY = "10"
+
+# Настройки для CI/CD
+[env.CI]
+CARGO_TERM_COLOR = "always"
+RUST_BACKTRACE = "full"
+RUSTFLAGS = "-Dwarnings"
+
+# Настройки для отладки
+[env.DEBUG]
+RUST_BACKTRACE = "1"
+RUST_LOG = "debug"
+
+# Зеркала для ускорения загрузки в Китае/России
+[source.crates-io]
+replace-with = 'tuna'
+
+[source.tuna]
+registry = "https://mirrors.tuna.tsinghua.edu.cn/git/crates.io-index.git"
+
+# Альтернативные зеркала
+[source.ustc]
+registry = "https://mirrors.ustc.edu.cn/crates.io-index"
+
+[source.sjtu]
+registry = "https://mirrors.sjtug.sjtu.edu.cn/git/crates.io-index"
+
+# Настройки для кэширования
+[cache]
+# Использовать sccache если доступно
+sccache = { enabled = true, endpoint = "http://localhost:4226" }
+
+# Кэширование зависимостей
+dep_cache = true
+target_cache = true
+
+# Настройки для ускорения сборки
+[net]
+retry = 3
+git-fetch-with-cli = true
+
+# Настройки для тестирования
+[test]
+# Опции для cargo test
+args = ["--nocapture", "--test-threads=4"]
+timeout = 300
+
+# Настройки для бенчмарков
+[bench]
+args = ["--nocapture"]
+harness = false
+
+# Настройки для документации
+[doc]
+args = ["--open", "--no-deps"]
+target-dir = "target/doc"
+
+# Настройки для упаковки
+[package.metadata.deb]
+name = "audio-effects-native"
+maintainer = "elixir_music_bot"
+depends = "$auto"
+
+# Алиасы для команд cargo
+[alias]
+# Полезные алиасы
+b = "build"
+t = "test"
+r = "run"
+rr = "run --release"
+c = "check"
+doc = "doc --no-deps --open"
+fmt = "fmt --all"
+clippy = "clippy --all-features -- -D warnings"
+
+# Алиасы для разработки
+dev = "run --features parallel"
+release = "build --release --features parallel"
+release-gpu = "build --release --features parallel,gpu"
+release-simd = "build --release --features parallel,simd"
+
+# Алиасы для тестирования
+test-all = "test --all-features"
+test-unit = "test --lib"
+test-integration = "test --tests"
+
+# Алиасы для бенчмаркинга
+bench-all = "bench --all-features"
+
+# Алиасы для анализа
+lint = "clippy --all-features -- -D warnings"
+audit = "audit"
+outdated = "outdated --exit-code 1"
+
+# Алиасы для кросс-компиляции
+cross-linux = "build --target x86_64-unknown-linux-gnu --release"
+cross-windows = "build --target x86_64-pc-windows-gnu --release"
+cross-macos = "build --target x86_64-apple-darwin --release"
+
+# Алиасы для сборки NIF
+nif-build = "build --release --features parallel"
+nif-test = "test --features parallel"
+nif-doc = "doc --features parallel --no-deps --open"
+
+# Алиасы для Docker
+docker = "build --target x86_64-unknown-linux-musl --release"

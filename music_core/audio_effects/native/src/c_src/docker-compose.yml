@@ -1,0 +1,125 @@
+version: '3.8'
+
+services:
+  # ===== Основная сборка C DSP с CUDA =====
+  c-dsp-builder:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - CUDA_SUPPORT=${CUDA_SUPPORT:-1}
+    container_name: c_dsp_builder
+    runtime: nvidia  # ВАЖНО: для доступа к GPU
+    environment:
+      - CUDA_SUPPORT=1
+      - NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}
+    volumes:
+      - .:/app
+      - ../priv:/app/priv
+      - c_dsp_build:/app/build
+    command: make install
+    networks:
+      - c_dsp_network
+
+  # ===== Тестирование =====
+  c-dsp-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: c_dsp_test
+    runtime: nvidia
+    environment:
+      - CUDA_SUPPORT=1
+    volumes:
+      - .:/app
+    depends_on:
+      - c-dsp-builder
+    command: make test
+    networks:
+      - c_dsp_network
+
+  # ===== Расширенное тестирование (fuzzing, performance) =====
+  c-dsp-test-extended:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: c_dsp_test_extended
+    runtime: nvidia
+    environment:
+      - CUDA_SUPPORT=1
+    volumes:
+      - .:/app
+      - test_results:/app/test_results
+    depends_on:
+      - c-dsp-builder
+    command: make test_extended
+    networks:
+      - c_dsp_network
+
+  # ===== Пример с CUDA =====
+  c-dsp-example:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: c_dsp_example
+    runtime: nvidia
+    environment:
+      - CUDA_SUPPORT=1
+    volumes:
+      - .:/app
+    depends_on:
+      - c-dsp-builder
+    command: make example
+    networks:
+      - c_dsp_network
+
+  # ===== Генерация документации Doxygen =====
+  doxygen:
+    image: doxygen/doxygen:latest
+    container_name: c_dsp_doxygen
+    volumes:
+      - .:/app
+      - ./docs:/app/docs
+    working_dir: /app
+    command: doxygen Doxyfile
+    networks:
+      - c_dsp_network
+
+  # ===== CI: Линтер и форматтер =====
+  ci-lint:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: c_dsp_ci_lint
+    volumes:
+      - .:/app
+    command: make lint
+    networks:
+      - c_dsp_network
+
+  # ===== CI: Полная проверка =====
+  ci-full:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: c_dsp_ci_full
+    runtime: nvidia
+    environment:
+      - CUDA_SUPPORT=1
+    volumes:
+      - .:/app
+      - ci_cache:/root/.cache
+    command: sh -c "make clean && make all && make test && make test_extended"
+    depends_on:
+      - doxygen
+    networks:
+      - c_dsp_network
+
+networks:
+  c_dsp_network:
+    driver: bridge
+
+volumes:
+  c_dsp_build:
+  test_results:
+  ci_cache:

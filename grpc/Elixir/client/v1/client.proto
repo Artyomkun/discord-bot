@@ -1,0 +1,340 @@
+syntax = "proto3";
+
+package client.v1;
+
+service ClientService {
+  // Основной обработчик запросов
+  rpc Handle(ClientRequest) returns (ClientResponse);
+  
+  // Стрим событий для клиента
+  rpc EventStream(stream EventRequest) returns (stream Event);
+  
+  // Пакетная обработка
+  rpc BatchHandle(stream ClientRequest) returns (stream ClientResponse);
+  
+  // Проверка здоровья
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+  
+  // Получение статуса
+  rpc GetStatus(StatusRequest) returns (StatusResponse);
+}
+
+message ClientRequest {
+  string client_id = 1;
+  string request_id = 2;                       // Для трекинга
+  int64 timestamp = 3;
+  
+  oneof request_type {
+    AuthRequest auth = 10;
+    SubscribeRequest subscribe = 11;
+    UnsubscribeRequest unsubscribe = 12;
+    Ping ping = 13;
+    EventRequest event = 14;
+    StatusRequest status = 15;
+    MetricsRequest metrics = 16;
+    ConfigRequest config = 17;
+  }
+}
+
+message Event {
+  string event_id = 1;
+  string event_type = 2;
+  bytes payload = 3;
+  int64 timestamp = 4;
+  bool from_history = 5;
+}
+
+message AuthRequest {
+  string token = 1;
+  ClientType client_type = 2;
+  string version = 3;                           // Версия клиента
+  map<string, string> metadata = 4;              // Доп. информация
+}
+
+enum ClientType {
+  CLIENT_TYPE_UNKNOWN = 0;
+  CLIENT_TYPE_GO = 1;
+  CLIENT_TYPE_JAVA = 2;
+  CLIENT_TYPE_PYTHON = 3;
+  CLIENT_TYPE_ELIXIR = 4;
+  CLIENT_TYPE_RUST = 5;
+  CLIENT_TYPE_CUDA = 6;
+  CLIENT_TYPE_WEB = 7;
+  CLIENT_TYPE_MOBILE = 8;
+}
+
+message SubscribeRequest {
+  repeated string events = 1;
+  int64 ttl_seconds = 2;                         // Время жизни подписки
+  map<string, string> filters = 3;                // Фильтры для событий
+  bool replay_history = 4;                         // Отправить историю?
+}
+
+message UnsubscribeRequest {
+  repeated string events = 1;
+  bool unsubscribe_all = 2;
+}
+
+message Ping {
+  int64 timestamp = 1;
+  string client_id = 2;
+}
+
+message EventRequest {
+  string event_type = 1;
+  bytes payload = 2;
+  int64 timestamp = 3;
+  map<string, string> metadata = 4;
+}
+
+message StatusRequest {
+  bool detailed = 1;
+  repeated string metrics = 2;
+}
+
+message MetricsRequest {
+  repeated string metric_names = 1;
+  int64 from_timestamp = 2;
+  int64 to_timestamp = 3;
+  MetricsAggregation aggregation = 4;
+}
+
+enum MetricsAggregation {
+  NONE = 0;
+  AVG = 1;
+  SUM = 2;
+  MIN = 3;
+  MAX = 4;
+  PERCENTILE_95 = 5;
+  PERCENTILE_99 = 6;
+}
+
+message ConfigRequest {
+  repeated string config_keys = 1;
+  bool watch = 2;                                 // Следить за изменениями?
+}
+
+message ClientResponse {
+  string client_id = 1;
+  string request_id = 2;                          // Соответствует запросу
+  int64 timestamp = 3;
+  
+  oneof response_type {
+    AuthResponse auth = 10;
+    SubscribeResponse subscribe = 11;
+    UnsubscribeResponse unsubscribe = 12;
+    Pong pong = 13;
+    EventResponse event = 14;
+    StatusResponse status = 15;
+    MetricsResponse metrics = 16;
+    ConfigResponse config = 17;
+    Error error = 100;
+  }
+}
+
+message AuthResponse {
+  string session_id = 1;
+  string name = 2;
+  int64 authenticated_at = 3;
+  int64 expires_at = 4;                           // Время истечения сессии
+  repeated string permissions = 5;                  // Разрешения
+  map<string, string> metadata = 6;
+}
+
+message SubscribeResponse {
+  repeated string subscribed_events = 1;
+  int64 ttl_seconds = 2;                           // Фактическое TTL
+  string subscription_id = 3;                       // ID подписки
+  int64 event_count = 4;                            // Количество событий в истории
+}
+
+message UnsubscribeResponse {
+  repeated string unsubscribed_events = 1;
+  bool all_unsubscribed = 2;
+}
+
+message Pong {
+  int64 timestamp = 1;
+  int64 server_time = 2;
+  int64 latency_ms = 3;                             // Вычисленная задержка
+  string server_id = 4;
+}
+
+message EventResponse {
+  string event_id = 1;
+  string event_type = 2;
+  bytes payload = 3;
+  int64 timestamp = 4;
+  bool from_history = 5;
+}
+
+message StatusResponse {
+  string client_id = 1;
+  ClientStatus status = 2;
+  int64 connected_since = 3;
+  int64 last_activity = 4;
+  ConnectionInfo connection = 5;
+  repeated string active_subscriptions = 6;
+  map<string, int64> event_counts = 7;
+  ResourceUsage resources = 8;
+  
+  message Detailed {
+    // Подробная информация если detailed = true
+    repeated string recent_events = 1;
+    map<string, string> debug_info = 2;
+  }
+  Detailed detailed = 9;
+}
+
+enum ClientStatus {
+  CLIENT_STATUS_UNKNOWN = 0;
+  CLIENT_STATUS_CONNECTING = 1;
+  CLIENT_STATUS_CONNECTED = 2;
+  CLIENT_STATUS_DISCONNECTED = 3;
+  CLIENT_STATUS_ERROR = 4;
+  CLIENT_STATUS_RECONNECTING = 5;
+  CLIENT_STATUS_DEGRADED = 6;
+}
+
+message ConnectionInfo {
+  string client_ip = 1;
+  string protocol = 2;
+  int32 port = 3;
+  string user_agent = 4;
+  int64 ping_ms = 5;
+  int64 bytes_sent = 6;
+  int64 bytes_received = 7;
+}
+
+message ResourceUsage {
+  float cpu_percent = 1;
+  int64 memory_bytes = 2;
+  int64 uptime_ms = 3;
+  int32 active_threads = 4;
+  int32 open_files = 5;
+}
+
+message MetricsResponse {
+  string client_id = 1;
+  int64 collected_at = 2;
+  repeated Metric metrics = 3;
+}
+
+message Metric {
+  string name = 1;
+  MetricType type = 2;
+  
+  oneof value {
+    int64 int_value = 3;
+    double float_value = 4;
+    string string_value = 5;
+    bool bool_value = 6;
+    Histogram histogram = 7;
+  }
+  
+  map<string, string> labels = 8;
+  int64 timestamp = 9;
+}
+
+enum MetricType {
+  COUNTER = 0;
+  GAUGE = 1;
+  HISTOGRAM = 2;
+  SUMMARY = 3;
+}
+
+message Histogram {
+  repeated Bucket buckets = 1;
+  double sum = 2;
+  int64 count = 3;
+}
+
+message Bucket {
+  double upper_bound = 1;
+  int64 cumulative_count = 2;
+}
+
+message ConfigResponse {
+  repeated ConfigEntry entries = 1;
+  int64 version = 2;
+  bool watching = 3;
+}
+
+message ConfigEntry {
+  string key = 1;
+  oneof value {
+    string string_value = 2;
+    int64 int_value = 3;
+    double float_value = 4;
+    bool bool_value = 5;
+    bytes bytes_value = 6;
+  }
+  string description = 7;
+  bool mutable = 8;
+}
+
+message Error {
+  int32 code = 1;
+  string message = 2;
+  string details = 3;
+  int64 timestamp = 4;
+  string request_id = 5;
+  
+  enum ErrorCode {
+    ERROR_CODE_UNKNOWN = 0;
+    ERROR_CODE_UNAUTHORIZED = 1;
+    ERROR_CODE_FORBIDDEN = 2;
+    ERROR_CODE_NOT_FOUND = 3;
+    ERROR_CODE_TIMEOUT = 4;
+    ERROR_CODE_RATE_LIMITED = 5;
+    ERROR_CODE_INVALID_REQUEST = 6;
+    ERROR_CODE_INTERNAL = 7;
+    ERROR_CODE_UNAVAILABLE = 8;
+  }
+  ErrorCode error_code = 6;
+}
+
+message HealthCheckRequest {
+  string service = 1;
+  bool detailed = 2;
+}
+
+message HealthCheckResponse {
+  enum ServingStatus {
+    SERVING_STATUS_UNKNOWN = 0;
+    SERVING_STATUS_SERVING = 1;
+    SERVING_STATUS_NOT_SERVING = 2;
+    SERVING_STATUS_DEGRADED = 3;
+  }
+  ServingStatus status = 1;
+  string message = 2;
+  int64 timestamp = 3;
+  
+  message Check {
+    string name = 1;
+    ServingStatus status = 2;
+    string message = 3;
+    int64 duration_ms = 4;
+  }
+  repeated Check checks = 4;
+  
+  VersionInfo version = 5;
+  CapacityInfo capacity = 6;
+}
+
+message VersionInfo {
+  string version = 1;
+  string build = 2;
+  string commit = 3;
+  string branch = 4;
+  int64 build_time = 5;
+}
+
+message CapacityInfo {
+  int32 max_connections = 1;
+  int32 current_connections = 2;
+  int32 max_requests_per_second = 3;
+  int32 current_rps = 4;
+  float cpu_usage = 5;
+  float memory_usage = 6;
+}

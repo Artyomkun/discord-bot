@@ -1,0 +1,1 @@
+mix compile 2>&1 | tee warnings.txt

@@ -1,0 +1,127 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # ручной запуск
+
+env:
+  CUDA_SUPPORT: 0
+  WORK_DIR: elixir_music_bot/music_core/audio_effects/native/c_src
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        compiler: [gcc, clang]
+        build_type: [debug, release]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential clang cmake valgrind
+
+    - name: Build library (${{ matrix.compiler }}, ${{ matrix.build_type }})
+      run: |
+        if [ "${{ matrix.compiler }}" = "gcc" ]; then
+          export CC=gcc
+        else
+          export CC=clang
+        fi
+        if [ "${{ matrix.build_type }}" = "debug" ]; then
+          export CFLAGS="-g -O0"
+        else
+          export CFLAGS="-O2"
+        fi
+        make all
+      working-directory: ${{ env.WORK_DIR }}
+
+    - name: Run tests
+      run: make test
+      working-directory: ${{ env.WORK_DIR }}
+
+    - name: Run extended tests (if available)
+      run: make test_extended || true
+      working-directory: ${{ env.WORK_DIR }}
+
+    - name: Upload test artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-logs-${{ matrix.compiler }}-${{ matrix.build_type }}
+        path: ${{ env.WORK_DIR }}/test_results/
+
+  cuda-build:
+    runs-on: ubuntu-latest
+    if: contains(github.event.head_commit.message, 'CUDA') || contains(github.event.pull_request.title, 'CUDA')
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install CUDA
+      uses: Jimver/cuda-toolkit@v0.2.18
+      id: cuda-toolkit
+      with:
+        cuda: '12.2.0'
+        sub-packages: '["nvcc", "cudart"]'
+
+    - name: Verify CUDA installation
+      run: nvcc --version
+
+    - name: Build with CUDA
+      run: make CUDA_SUPPORT=1 all
+      working-directory: ${{ env.WORK_DIR }}
+
+    - name: Run tests with CUDA
+      run: make CUDA_SUPPORT=1 test
+      working-directory: ${{ env.WORK_DIR }}
+
+    - name: Run benchmarks (CUDA)
+      run: make CUDA_SUPPORT=1 bench || true
+      working-directory: ${{ env.WORK_DIR }}
+
+  documentation:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Doxygen
+      run: sudo apt-get install -y doxygen graphviz
+
+    - name: Generate documentation
+      run: doxygen Doxyfile || true
+      working-directory: ${{ env.WORK_DIR }}
+
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ${{ env.WORK_DIR }}/docs/html
+        destination_dir: docs/c-dsp
+
+  code-quality:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install linters
+      run: |
+        sudo apt-get install -y cppcheck clang-format clang-tidy
+
+    - name: Static analysis with cppcheck
+      run: cppcheck --enable=all --suppress=missingIncludeSystem .
+      working-directory: ${{ env.WORK_DIR }}
+
+    - name: Check formatting (clang-format)
+      run: |
+        find . -name "*.c" -o -name "*.h" | xargs clang-format --dry-run --Werror
+      working-directory: ${{ env.WORK_DIR }}

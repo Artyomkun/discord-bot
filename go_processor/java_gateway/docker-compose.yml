@@ -1,0 +1,116 @@
+version: '3.8'
+
+services:
+  # ===== Zookeeper (для Kafka) =====
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: music_bot_zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - bot_network
+    restart: unless-stopped
+
+  # ===== Kafka (брокер сообщений) =====
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: music_bot_kafka
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    ports:
+      - "9092:9092"
+    networks:
+      - bot_network
+    restart: unless-stopped
+
+  # ===== PostgreSQL =====
+  postgres:
+    image: postgres:15
+    container_name: music_bot_postgres
+    environment:
+      POSTGRES_DB: discord_bot
+      POSTGRES_USER: bot_user
+      POSTGRES_PASSWORD: bot_pass
+      TZ: 'Europe/Moscow'
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bot_user -d discord_bot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bot_network
+    restart: unless-stopped
+
+  # ===== Java Gateway (HTTP + Camel + Kafka consumer) =====
+  java-gateway:
+    build: 
+      context: ./java_gateway
+      dockerfile: Dockerfile
+    container_name: music_bot_java
+    ports:
+      - "8080:8080"
+      - "50050:50050"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: discord_bot
+      DB_USER: bot_user
+      DB_PASSWORD: bot_pass
+      SPRING_PROFILES_ACTIVE: docker
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    networks:
+      - bot_network
+    restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs
+
+  # ===== Go Processor (аудио обработка) =====
+  go-processor:
+    build:
+      context: ./go_processor
+      dockerfile: Dockerfile
+    container_name: music_bot_go
+    ports:
+      - "8081:8081"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: discord_bot
+      DB_USER: bot_user
+      DB_PASSWORD: bot_pass
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    networks:
+      - bot_network
+    restart: unless-stopped
+
+networks:
+  bot_network:
+    driver: bridge
+
+volumes:
+  postgres_data:

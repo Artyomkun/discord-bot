@@ -1,0 +1,131 @@
+syntax = "proto3";
+
+package server.v1;
+
+option java_package = "com.bot.grpc";
+option java_outer_classname = "AudioServiceProto";
+
+service AudioService {
+  rpc Play(PlayRequest) returns (PlayResponse);
+  rpc Stop(StopRequest) returns (StopResponse);
+  rpc Pause(PauseRequest) returns (PauseResponse);
+  rpc Resume(ResumeRequest) returns (ResumeResponse);
+  rpc Skip(SkipRequest) returns (SkipResponse);
+  rpc Volume(VolumeRequest) returns (VolumeResponse);
+  rpc GetQueue(QueueRequest) returns (QueueResponse);
+  rpc ApplyEffects(EffectsRequest) returns (EffectsResponse);
+  rpc GetStatus(StatusRequest) returns (StatusResponse);
+  rpc HealthCheck(HealthRequest) returns (HealthResponse);
+}
+
+message PlayRequest {
+  string guild_id = 1;
+  string user_id = 2;
+  string url = 3;
+  string voice_channel_id = 4;
+  map<string, string> options = 5;
+}
+
+message PlayResponse {
+  bool success = 1;
+  string message = 2;
+  TrackInfo track = 3;
+}
+
+message StopRequest {
+  string guild_id = 1;
+}
+
+message StopResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message PauseRequest {
+  string guild_id = 1;
+}
+
+message PauseResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message ResumeRequest {
+  string guild_id = 1;
+}
+
+message ResumeResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message SkipRequest {
+  string guild_id = 1;
+}
+
+message SkipResponse {
+  bool success = 1;
+  string message = 2;
+  TrackInfo next_track = 3;
+}
+
+message VolumeRequest {
+  string guild_id = 1;
+  int32 volume = 2;
+}
+
+message VolumeResponse {
+  bool success = 1;
+  string message = 2;
+  int32 volume = 3;
+}
+
+message QueueRequest {
+  string guild_id = 1;
+}
+
+message QueueResponse {
+  bool success = 1;
+  repeated TrackInfo tracks = 2;
+  TrackInfo current_track = 3;
+}
+
+message EffectsRequest {
+  string guild_id = 1;
+  string user_id = 2;
+  string effect_type = 3;
+  double intensity = 4;
+}
+
+message EffectsResponse {
+  bool success = 1;
+  string message = 2;
+  repeated string applied_effects = 3;
+}
+
+message StatusRequest {
+  string guild_id = 1;
+}
+
+message StatusResponse {
+  bool success = 1;
+  bool playing = 2;
+  TrackInfo current_track = 3;
+  int32 volume = 4;
+  int32 queue_length = 5;
+}
+
+message HealthRequest {}
+
+message HealthResponse {
+  string status = 1;
+  string message = 2;
+}
+
+message TrackInfo {
+  string title = 1;
+  string url = 2;
+  string artist = 3;
+  int32 duration = 4;
+  string requester = 5;
+}

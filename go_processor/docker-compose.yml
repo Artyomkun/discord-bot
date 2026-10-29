@@ -1,0 +1,140 @@
+version: '3.8'
+
+services:
+  # ===== Go Processor =====
+  go-processor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: go_processor
+    environment:
+      # База данных
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=music_bot
+      - DB_PASSWORD=music_bot_password
+      - DB_NAME=music_bot_dev
+      # gRPC
+      - GRPC_PORT=50051
+      # Elixir core
+      - ELIXIR_HOST=elixir_core
+      - ELIXIR_PORT=4000
+      # Java gateway
+      - JAVA_HOST=java_gateway
+      - JAVA_PORT=50052
+      # Логирование
+      - LOG_LEVEL=info
+      - LOG_FORMAT=json
+    ports:
+      - "50051:50051"  # gRPC порт
+      - "8080:8080"    # HTTP health check
+    volumes:
+      - ./logs:/app/logs
+      - go_cache:/go/pkg/mod
+    depends_on:
+      postgres:
+        condition: service_healthy
+      elixir-core:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "grpc_health_probe", "-addr=:50051"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - music_network
+    restart: unless-stopped
+
+  # ===== PostgreSQL для Go (переиспользуем) =====
+  postgres:
+    image: postgres:16-alpine
+    container_name: go_postgres
+    environment:
+      POSTGRES_USER: music_bot
+      POSTGRES_PASSWORD: music_bot_password
+      POSTGRES_DB: music_bot_dev
+    ports:
+      - "5433:5432"  # другой порт, чтобы не конфликтовать
+    volumes:
+      - go_postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U music_bot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - music_network
+    restart: unless-stopped
+
+  # ===== Elixir Core (зависимость) =====
+  elixir-core:
+    build:
+      context: ../music_core
+      dockerfile: Dockerfile
+    container_name: elixir_core
+    environment:
+      - PORT=4000
+      - MIX_ENV=prod
+    ports:
+      - "4000:4000"
+    networks:
+      - music_network
+    restart: unless-stopped
+
+  # ===== Тестирование Go =====
+  go-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: test
+    container_name: go_processor_test
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=music_bot
+      - DB_PASSWORD=music_bot_password
+      - DB_NAME=music_bot_test
+    depends_on:
+      - postgres
+    command: go test -v -race -coverprofile=coverage.out ./...
+    volumes:
+      - ./coverage:/app/coverage
+    networks:
+      - music_network
+
+  # ===== Инструменты =====
+  go-migrate:
+    image: migrate/migrate:latest
+    container_name: go_migrate
+    volumes:
+      - ./migrations:/migrations
+    command:
+      - "-path=/migrations"
+      - "-database=postgres://music_bot:music_bot_password@postgres:5432/music_bot_dev?sslmode=disable"
+      - "up"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - music_network
+
+  # ===== Мониторинг =====
+  grpcurl:
+    image: fullstorydev/grpcurl:latest
+    container_name: grpcurl_tool
+    profiles:
+      - tools
+    command: ["sleep", "infinity"]
+    networks:
+      - music_network
+
+networks:
+  music_network:
+    driver: bridge
+    name: music_network
+    external: true
+
+volumes:
+  go_cache:
+  go_postgres_data:

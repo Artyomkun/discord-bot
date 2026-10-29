@@ -1,0 +1,132 @@
+# Conversion to YAML from Properties formar report
+# Warnings:
+# - The yaml file had comments which are lost in the refactoring!
+discord:
+    token: ${DISCORD_TOKEN:}
+    gateway-intents:
+        all: false
+
+spring:
+    application:
+        name: java-gateway
+    profiles:
+        active: ${SPRING_PROFILES_ACTIVE:dev}
+    datasource:
+        url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:discord_bot}
+        username: ${DB_USER:bot_user}
+        password: ${DB_PASSWORD:bot_pass}
+        driver-class-name: org.postgresql.Driver
+        hikari:
+            maximum-pool-size: ${DB_POOL_SIZE:10}
+            minimum-idle: ${DB_MIN_IDLE:5}
+            idle-timeout: 300000
+            connection-timeout: 30000
+            leak-detection-threshold: 60000
+    jpa:
+        hibernate:
+            ddl-auto: ${JPA_DDL:update}
+        show-sql: false
+        properties:
+            hibernate:
+                dialect: org.hibernate.dialect.PostgreSQLDialect
+                format_sql: true
+                jdbc:
+                    batch_size: 20
+                    fetch_size: 100
+
+server:
+    port: ${SERVER_PORT:50050}
+    shutdown: graceful
+    netty:
+        connection-timeout: 30s
+        idle-timeout: 60s
+    http2:
+        enabled: true
+    compression:
+        enabled: true
+        mime-types: application/json,application/xml,text/html,text/xml,text/plain
+        min-response-size: 2048
+
+logging:
+    level:
+        com.bot: ${LOG_LEVEL:INFO}
+        org.springframework.web: ${SPRING_WEB_LOG:WARN}
+        reactor.netty: WARN
+    file:
+        name: logs/java-gateway.log
+    logback:
+        rollingpolicy:
+            max-file-size: 10MB
+            max-history: 30
+
+management:
+    endpoints:
+        web:
+            exposure:
+                include: health,metrics,prometheus
+    endpoint:
+        health:
+            show-details: always
+    prometheus:
+        metrics:
+            export:
+                enabled: true
+
+custom:
+    go:
+        processor:
+            url: ${GO_PROCESSOR_URL:http://localhost:8081}
+            timeout: 30s
+    external:
+        services:
+            python-bot:
+                url: ${PYTHON_BOT_URL:http://localhost:5000}
+                timeout: 30
+            elixir-core:
+                url: ${ELIXIR_CORE_URL:http://localhost:4000}
+
+---
+spring:
+    config:
+        activate:
+            on-profile: dev
+    devtools:
+        restart:
+            enabled: true
+logging:
+    level:
+        com.bot: DEBUG
+server:
+    port: 50050
+
+---
+spring:
+    config:
+        activate:
+            on-profile: prod
+    jpa:
+        hibernate:
+            ddl-auto: validate
+logging:
+    level:
+        com.bot: INFO
+server:
+    port: 50050
+
+---
+spring:
+    config:
+        activate:
+            on-profile: docker
+    datasource:
+        url: jdbc:postgresql://postgres:5432/discord_bot
+custom:
+    go:
+        processor:
+            url: http://go-processor:8081
+    external:
+        services:
+            python-bot:
+                url: http://python-bot:5000
+            elixir-core:
+                url: http://elixir-core:4000

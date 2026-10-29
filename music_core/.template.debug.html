@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Debug Info - MusicCore</title>
+  <style>
+    body { font-family: monospace; padding: 20px; }
+    pre { background: #f4f4f4; padding: 10px; border-radius: 5px; }
+    .info { color: #0066cc; }
+    .error { color: #cc0000; }
+  </style>
+</head>
+<body>
+  <h1>MusicCore Debug Information</h1>
+
+  <h2>System Info</h2>
+  <pre><%= inspect(System.schedulers_online()) %></pre>
+
+  <h2>Application Config</h2>
+  <pre><%= inspect(Application.get_all_env(:music_core)) %></pre>
+
+  <h2>Loaded Modules</h2>
+  <pre><%= inspect(:code.all_loaded()) %></pre>
+</body>
+</html>

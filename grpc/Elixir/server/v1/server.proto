@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+package ElixirServer.v1;
+
+option go_package = "GoServer";
+option java_package = "com.bot.grpc.gateway";
+option java_outer_classname = "GatewayServiceProto";
+
+service ElixirServer {
+    rpc RouteCommand(CommandRequest) returns (CommandResponse);
+    rpc GetAllServicesStatus(StatusRequest) returns (AllServicesStatusResponse);
+    rpc HealthCheck(HealthRequest) returns (HealthResponse);
+}
+
+// Команда от Java Gateway
+message CommandRequest {
+    string command = 1; 
+    string user_id = 2;
+    string guild_id = 3;
+    string channel_id = 4;
+    map<string, string> params = 5;
+}
+
+message CommandResponse {
+    bool success = 1;
+    string message = 2;
+    map<string, string> data = 3;
+    string target_service = 4;
+    int64 latency_ms = 5;
+}
+
+message StatusRequest {
+    string guild_id = 1;
+}
+
+message AllServicesStatusResponse {
+    bool success = 1;
+    ServiceStatus go = 2;
+    ServiceStatus python = 3;
+    ServiceStatus audio = 4;
+    ServiceStatus gateway = 5;
+}
+
+message ServiceStatus {
+    string name = 1;
+    string status = 2;
+    string message = 3;
+    int64 last_heartbeat = 4;
+    int64 latency_ms = 5;
+}
+
+message HealthRequest {
+    string service = 1;
+}
+
+message HealthResponse {
+    string status = 1;
+    string message = 2;
+    int64 timestamp = 3;
+    map<string, ServiceStatus> services = 4;
+}
