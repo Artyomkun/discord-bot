@@ -1,6 +1,0 @@
-/_build
-/bench/results
-/deps
-/doc
-/tmp
-erl_crash.dump
